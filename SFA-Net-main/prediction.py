@@ -15,19 +15,48 @@ import ttach as tta
 from tools.cfg import py2cfg
 
 
+# def label2rgb(mask):
+#     """Convert label mask to RGB visualization"""
+#     h, w = mask.shape[0], mask.shape[1]
+#     mask_rgb = np.zeros(shape=(h, w, 3), dtype=np.uint8)
+#     mask_convert = mask[np.newaxis, :, :]
+#     mask_rgb[np.all(mask_convert == 0, axis=0)] = [255, 255, 255]  # Background
+#     mask_rgb[np.all(mask_convert == 1, axis=0)] = [255, 0, 0]      # Building
+#     mask_rgb[np.all(mask_convert == 2, axis=0)] = [255, 255, 0]    # Road
+#     mask_rgb[np.all(mask_convert == 3, axis=0)] = [0, 0, 255]      # Water
+#     mask_rgb[np.all(mask_convert == 4, axis=0)] = [159, 129, 183]  # Barren
+#     mask_rgb[np.all(mask_convert == 5, axis=0)] = [0, 255, 0]      # Forest
+#     mask_rgb[np.all(mask_convert == 6, axis=0)] = [255, 195, 128]  # Agricultural
+#     return mask_rgb
+
 def label2rgb(mask):
-    """Convert label mask to RGB visualization"""
+    """Convert label mask to RGB visualization with Building, Road, Water, Forest as one color"""
     h, w = mask.shape[0], mask.shape[1]
     mask_rgb = np.zeros(shape=(h, w, 3), dtype=np.uint8)
     mask_convert = mask[np.newaxis, :, :]
+    total_pixels = h*w
+    # Set background
     mask_rgb[np.all(mask_convert == 0, axis=0)] = [255, 255, 255]  # Background
-    mask_rgb[np.all(mask_convert == 1, axis=0)] = [255, 0, 0]      # Building
-    mask_rgb[np.all(mask_convert == 2, axis=0)] = [255, 255, 0]    # Road
-    mask_rgb[np.all(mask_convert == 3, axis=0)] = [0, 0, 255]      # Water
-    mask_rgb[np.all(mask_convert == 4, axis=0)] = [159, 129, 183]  # Barren
-    mask_rgb[np.all(mask_convert == 5, axis=0)] = [0, 255, 0]      # Forest
-    mask_rgb[np.all(mask_convert == 6, axis=0)] = [255, 195, 128]  # Agricultural
+    red_percent = 0
+    green_percent = 0
+    # Set Building, Road, Water, Forest to red
+    for cls in [1, 2, 3, 5]:
+        cls_count = np.sum(mask == cls)
+        red_percent += round(100 * cls_count / total_pixels,2)
+        
+        mask_rgb[np.all(mask_convert == cls, axis=0)] = [255, 0, 0]
+    print("red=", red_percent)
+
+    # Keep other classes as before
+    for cls in [4,6]:
+        cls_count = np.sum(mask == cls)
+        green_percent += round(100 * cls_count / total_pixels,2)
+        
+        mask_rgb[np.all(mask_convert == cls, axis=0)] = [0, 255, 0]
+    print("green=", green_percent)
+    
     return mask_rgb
+
 
 def img_writer(inp):
     (mask,  mask_id, rgb) = inp
@@ -52,6 +81,21 @@ def get_args():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", 
                        help="Device to use (cuda/cpu)")
     return parser.parse_args()
+
+def calculate_percentage(mask):
+  """
+  Calculate the percentage of area covered by each class in the segmentation mask.
+
+  Args:
+      mask (numpy.ndarray): The predicted mask with class indices.
+
+  Returns:
+      dict: A dictionary with class indices as keys and their percentage coverage as values.
+  """
+  total_pixels = mask.size  # Total number of pixels in the mask
+  unique_classes, counts = np.unique(mask, return_counts=True)
+  percentages = {cls: (count / total_pixels) * 100 for cls, count in zip(unique_classes, counts)}
+  return percentages
 
 
 def main():
