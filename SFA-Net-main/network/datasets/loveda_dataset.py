@@ -24,21 +24,51 @@ INPUT_IMG_SIZE = (1024, 1024)
 TEST_IMG_SIZE = (1024, 1024)
 
 
+# def get_training_transform():
+#     train_transform = [
+#         # albu.Resize(height=1024, width=1024),
+#         albu.HorizontalFlip(p=0.5),
+#         albu.VerticalFlip(p=0.5),
+#         albu.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.25, p=0.25),
+#         albu.Sharpen(),
+#         # albu.RandomRotate90(p=0.5),
+#         # albu.OneOf([
+#         #     albu.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.25),
+#         #     albu.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=35, val_shift_limit=25)
+#         # ], p=0.25),
+#         albu.Normalize()
+#     ]
+#     return albu.Compose(train_transform)
+
 def get_training_transform():
     train_transform = [
-        # albu.Resize(height=1024, width=1024),
         albu.HorizontalFlip(p=0.5),
-        albu.VerticalFlip(p=0.5),
-        albu.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.25, p=0.25),
-        albu.Sharpen(),
-        # albu.RandomRotate90(p=0.5),
-        # albu.OneOf([
-        #     albu.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.25),
-        #     albu.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=35, val_shift_limit=25)
-        # ], p=0.25),
-        albu.Normalize()
+        albu.VerticalFlip(p=0.3),
+        albu.RandomRotate90(p=0.5),
+        albu.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.15, rotate_limit=15, border_mode=0, p=0.5),
+
+       
+        albu.OneOf([
+            albu.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3),
+            albu.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10),
+            albu.RGBShift(r_shift_limit=10, g_shift_limit=10, b_shift_limit=10),
+            albu.CLAHE(clip_limit=2),
+        ], p=0.5),
+
+        albu.OneOf([
+            albu.GaussianBlur(blur_limit=(3, 5)),
+            albu.Sharpen(alpha=(0.1, 0.3)),
+        ], p=0.2),
+
+        albu.ChannelDropout(channel_drop_range=(1, 1), fill_value=0, p=0.1),
+
+        # Rare conversion to grayscale to reduce RGB dependency
+        albu.ToGray(p=0.08),
+
+        albu.Normalize(),
     ]
     return albu.Compose(train_transform)
+
 
 
 def train_aug(img, mask):

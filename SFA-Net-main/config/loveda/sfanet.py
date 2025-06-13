@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 from network.losses import *
 from network.datasets.loveda_dataset import *
 from network.models.SFANet import SFANet
-from catalyst.contrib.nn import Lookahead
+# from catalyst.contrib.nn import Lookahead
 from catalyst import utils
 
 # training hparam
@@ -60,7 +60,8 @@ def train_aug(img, mask):
     return img, mask
 
 
-train_dataset = LoveDATrainDataset(transform=train_aug, data_root='data/LoveDA/train_val')
+# train_dataset = LoveDATrainDataset(transform=train_aug, data_root='data/LoveDA/train_val')
+train_dataset = LoveDATrainDataset(data_root='data/LoveDA/train_val') # not using the train_aug in the config file
 
 val_dataset = loveda_val_dataset
 
@@ -83,7 +84,7 @@ val_loader = DataLoader(dataset=val_dataset,
 # define the optimizer
 layerwise_params = {"backbone.*": dict(lr=backbone_lr, weight_decay=backbone_weight_decay)}
 net_params = utils.process_model_params(net, layerwise_params=layerwise_params)
-base_optimizer = torch.optim.AdamW(net_params, lr=lr, weight_decay=weight_decay)
-optimizer = Lookahead(base_optimizer)
+# base_optimizer = torch.optim.AdamW(net_params, lr=lr, weight_decay=weight_decay)
+optimizer = torch.optim.AdamW(net_params, lr=lr, weight_decay=weight_decay)
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch, eta_min=1e-6)
 

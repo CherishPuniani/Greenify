@@ -1,0 +1,6 @@
+Issues in this:
+-> Not robust enough so added various augmentations.
+-> There are cases when a lot of the area is being predicted as clutter so i set a relative margin threshold on the clutter class in the predictions.
+-> finding proper dataset 
+-> Not having NIR reading which are very beneficial coz the images are just 3 channels so have to use heavy augmentations to make the model not dependent on just the colors of different classes.
+-> Watermarks in image have a great impact on the predictions of the model.

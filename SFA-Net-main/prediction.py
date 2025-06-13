@@ -15,47 +15,47 @@ import ttach as tta
 from tools.cfg import py2cfg
 
 
-# def label2rgb(mask):
-#     """Convert label mask to RGB visualization"""
-#     h, w = mask.shape[0], mask.shape[1]
-#     mask_rgb = np.zeros(shape=(h, w, 3), dtype=np.uint8)
-#     mask_convert = mask[np.newaxis, :, :]
-#     mask_rgb[np.all(mask_convert == 0, axis=0)] = [255, 255, 255]  # Background
-#     mask_rgb[np.all(mask_convert == 1, axis=0)] = [255, 0, 0]      # Building
-#     mask_rgb[np.all(mask_convert == 2, axis=0)] = [255, 255, 0]    # Road
-#     mask_rgb[np.all(mask_convert == 3, axis=0)] = [0, 0, 255]      # Water
-#     mask_rgb[np.all(mask_convert == 4, axis=0)] = [159, 129, 183]  # Barren
-#     mask_rgb[np.all(mask_convert == 5, axis=0)] = [0, 255, 0]      # Forest
-#     mask_rgb[np.all(mask_convert == 6, axis=0)] = [255, 195, 128]  # Agricultural
-#     return mask_rgb
-
 def label2rgb(mask):
-    """Convert label mask to RGB visualization with Building, Road, Water, Forest as one color"""
+    """Convert label mask to RGB visualization"""
     h, w = mask.shape[0], mask.shape[1]
     mask_rgb = np.zeros(shape=(h, w, 3), dtype=np.uint8)
     mask_convert = mask[np.newaxis, :, :]
-    total_pixels = h*w
-    # Set background
     mask_rgb[np.all(mask_convert == 0, axis=0)] = [255, 255, 255]  # Background
-    red_percent = 0
-    green_percent = 0
-    # Set Building, Road, Water, Forest to red
-    for cls in [1, 2, 3, 5]:
-        cls_count = np.sum(mask == cls)
-        red_percent += round(100 * cls_count / total_pixels,2)
-        
-        mask_rgb[np.all(mask_convert == cls, axis=0)] = [255, 0, 0]
-    print("red=", red_percent)
-
-    # Keep other classes as before
-    for cls in [4,6]:
-        cls_count = np.sum(mask == cls)
-        green_percent += round(100 * cls_count / total_pixels,2)
-        
-        mask_rgb[np.all(mask_convert == cls, axis=0)] = [0, 255, 0]
-    print("green=", green_percent)
-    
+    mask_rgb[np.all(mask_convert == 1, axis=0)] = [255, 0, 0]      # Building
+    mask_rgb[np.all(mask_convert == 2, axis=0)] = [255, 255, 0]    # Road
+    mask_rgb[np.all(mask_convert == 3, axis=0)] = [0, 0, 255]      # Water
+    mask_rgb[np.all(mask_convert == 4, axis=0)] = [159, 129, 183]  # Barren
+    mask_rgb[np.all(mask_convert == 5, axis=0)] = [0, 255, 0]      # Forest
+    mask_rgb[np.all(mask_convert == 6, axis=0)] = [255, 195, 128]  # Agricultural
     return mask_rgb
+
+# def label2rgb(mask):
+#     """Convert label mask to RGB visualization with Building, Road, Water, Forest as one color"""
+#     h, w = mask.shape[0], mask.shape[1]
+#     mask_rgb = np.zeros(shape=(h, w, 3), dtype=np.uint8)
+#     mask_convert = mask[np.newaxis, :, :]
+#     total_pixels = h*w
+#     # Set background
+#     mask_rgb[np.all(mask_convert == 0, axis=0)] = [255, 255, 255]  # Background
+#     red_percent = 0
+#     green_percent = 0
+#     # Set Building, Road, Water, Forest to red
+#     for cls in [1, 2, 3, 5]:
+#         cls_count = np.sum(mask == cls)
+#         red_percent += round(100 * cls_count / total_pixels,2)
+        
+#         mask_rgb[np.all(mask_convert == cls, axis=0)] = [255, 0, 0]
+#     print("red=", red_percent)
+
+#     # Keep other classes as before
+#     for cls in [4,6]:
+#         cls_count = np.sum(mask == cls)
+#         green_percent += round(100 * cls_count / total_pixels,2)
+        
+#         mask_rgb[np.all(mask_convert == cls, axis=0)] = [0, 255, 0]
+#     print("green=", green_percent)
+    
+#     return mask_rgb
 
 
 def img_writer(inp):
@@ -152,19 +152,54 @@ def main():
     original_image = image.copy()
     
     # Resize to model's expected input size (adjust if needed)
-    target_size = (1024, 1024)  # Default size, adjust according to your model
+    target_size = (1024, 1024)  
     image = cv2.resize(image, target_size, interpolation=cv2.INTER_LINEAR)
-    
-    # Apply preprocessing
+  
+    #Converting to gray scale severly impaired the performance as expected
+    # image_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    # image_gray_3ch = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2RGB)
+
+    # # Apply preprocessing to the grayscale image
+    # image_tensor = transform(image_gray_3ch).unsqueeze(0).to(device)
+
+    # clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    # lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+    # lab[:,:,0] = clahe.apply(lab[:,:,0])
+    # image = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+
+    # alpha = 1.5  # Contrast control (1.0-3.0)
+    # beta = 10    # Brightness control (0-100)
+    # image_contrast = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+
+    # Apply preprocessing to the contrast-enhanced image
     image_tensor = transform(image).unsqueeze(0).to(device)
+
+
+    # # Apply preprocessing
+    # image_tensor = transform(image).unsqueeze(0).to(device)
     
     # Forward pass
     with torch.no_grad():
-        output = model(image_tensor)
+        logits = model(image_tensor)                 # shape (1,7,H,W)
+        probs  = nn.Softmax(dim=1)(logits)           # shape (1,7,H,W)
+
+        # --- relative-margin thresholding ----
+       
+        top2 = probs.topk(k=2, dim=1)                
+        p1, p2 = top2.values[:,0], top2.values[:,1] 
+        c1, c2 = top2.indices[:,0], top2.indices[:,1]
+
+        delta = 0.6  # margin threshold
+        is_clutter        = (c1 == 0)  
+        clutter_confident = is_clutter & ((p1 - p2) > delta)
+
+
+        final_pred = c1.clone()
+        swap_mask = is_clutter & ~clutter_confident
+        final_pred[swap_mask] = c2[swap_mask]
+
         
-        # Apply softmax and get class prediction
-        output = nn.Softmax(dim=1)(output)
-        prediction = output.argmax(dim=1)[0].cpu().numpy()
+        prediction = final_pred[0].cpu().numpy()
     
     # Convert prediction to RGB visualization
     prediction_rgb = label2rgb(prediction)
